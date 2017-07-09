@@ -53,10 +53,10 @@ import java.util.*;
  * @author liuzh
  */
 public abstract class MapperTemplate {
-    private static final XMLLanguageDriver languageDriver = new XMLLanguageDriver();
-    protected Map<String, Method> methodMap = new HashMap<String, Method>();
-    protected Map<String, Class<?>> entityClassMap = new HashMap<String, Class<?>>();
-    protected Class<?> mapperClass;
+    private static final XMLLanguageDriver     languageDriver = new XMLLanguageDriver();
+    protected            Map<String, Method>   methodMap      = new HashMap<String, Method>();
+    protected            Map<String, Class<?>> entityClassMap = new HashMap<String, Class<?>>();
+    protected Class<?>     mapperClass;
     protected MapperHelper mapperHelper;
 
     public MapperTemplate(Class<?> mapperClass, MapperHelper mapperHelper) {
@@ -129,7 +129,8 @@ public abstract class MapperTemplate {
     public String getIDENTITY() {
         return mapperHelper.getConfig().getIDENTITY();
     }
-	/**
+
+    /**
      * 获取IDENTITY值的表达式
      *
      * @param column
@@ -138,6 +139,7 @@ public abstract class MapperTemplate {
     public String getIDENTITY(EntityColumn column) {
         return MessageFormat.format(mapperHelper.getConfig().getIDENTITY(), column.getSequenceName(), column.getColumn(), column.getProperty(), column.getTable().getName());
     }
+
     public boolean isBEFORE() {
         return mapperHelper.getConfig().isBEFORE();
     }
@@ -149,6 +151,7 @@ public abstract class MapperTemplate {
     public boolean isCheckExampleEntityClass() {
         return mapperHelper.getConfig().isCheckExampleEntityClass();
     }
+
     /**
      * 是否支持该通用方法
      *
@@ -187,11 +190,6 @@ public abstract class MapperTemplate {
     protected void setSqlSource(MappedStatement ms, SqlSource sqlSource) {
         MetaObject msObject = SystemMetaObject.forObject(ms);
         msObject.setValue("sqlSource", sqlSource);
-        //如果是Jdbc3KeyGenerator，就设置为MultipleJdbc3KeyGenerator
-        KeyGenerator keyGenerator = ms.getKeyGenerator();
-        if (keyGenerator instanceof Jdbc3KeyGenerator) {
-            msObject.setValue("keyGenerator", new MultipleJdbc3KeyGenerator());
-        }
     }
 
     /**
