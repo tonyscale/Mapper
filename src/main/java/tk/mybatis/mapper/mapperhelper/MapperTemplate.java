@@ -24,15 +24,19 @@
 
 package tk.mybatis.mapper.mapperhelper;
 
-import org.apache.ibatis.mapping.*;
+import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.mapping.ResultMap;
+import org.apache.ibatis.mapping.SqlSource;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.SystemMetaObject;
 import org.apache.ibatis.scripting.xmltags.DynamicSqlSource;
 import org.apache.ibatis.scripting.xmltags.SqlNode;
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import tk.mybatis.mapper.MapperException;
+import tk.mybatis.mapper.entity.Config;
 import tk.mybatis.mapper.entity.EntityColumn;
 import tk.mybatis.mapper.entity.EntityTable;
+import tk.mybatis.mapper.util.MsUtil;
 import tk.mybatis.mapper.util.StringUtil;
 
 import java.lang.reflect.InvocationTargetException;
@@ -53,48 +57,12 @@ public abstract class MapperTemplate {
     protected            Map<String, Class<?>> entityClassMap = new HashMap<String, Class<?>>();
     protected Class<?>     mapperClass;
     protected MapperHelper mapperHelper;
+    protected Config       config;
 
     public MapperTemplate(Class<?> mapperClass, MapperHelper mapperHelper) {
         this.mapperClass = mapperClass;
         this.mapperHelper = mapperHelper;
-    }
-
-    /**
-     * 根据msId获取接口类
-     *
-     * @param msId
-     * @return
-     */
-    public static Class<?> getMapperClass(String msId) {
-        if (msId.indexOf(".") == -1) {
-            throw new MapperException("当前MappedStatement的id=" + msId + ",不符合MappedStatement的规则!");
-        }
-        String mapperClassStr = msId.substring(0, msId.lastIndexOf("."));
-        try {
-            return Class.forName(mapperClassStr);
-        } catch (ClassNotFoundException e) {
-            return null;
-        }
-    }
-
-    /**
-     * 获取执行的方法名
-     *
-     * @param ms
-     * @return
-     */
-    public static String getMethodName(MappedStatement ms) {
-        return getMethodName(ms.getId());
-    }
-
-    /**
-     * 获取执行的方法名
-     *
-     * @param msId
-     * @return
-     */
-    public static String getMethodName(String msId) {
-        return msId.substring(msId.lastIndexOf(".") + 1);
+        this.config = mapperHelper.getConfig();
     }
 
     /**
@@ -117,34 +85,24 @@ public abstract class MapperTemplate {
         methodMap.put(methodName, method);
     }
 
-    public String getUUID() {
-        return mapperHelper.getConfig().getUUID();
-    }
-
-    public String getIDENTITY() {
-        return mapperHelper.getConfig().getIDENTITY();
-    }
-
     /**
      * 获取IDENTITY值的表达式
      *
      * @param column
      * @return
      */
-    public String getIDENTITY(EntityColumn column) {
-        return MessageFormat.format(mapperHelper.getConfig().getIDENTITY(), column.getSequenceName(), column.getColumn(), column.getProperty(), column.getTable().getName());
+    public String getFormatedIDENTITY(EntityColumn column) {
+        return MessageFormat.format(config.getIDENTITY(), column.getSequenceName(), column.getColumn(), column.getProperty(), column.getTable().getName());
     }
 
-    public boolean isBEFORE() {
-        return mapperHelper.getConfig().isBEFORE();
-    }
-
-    public boolean isNotEmpty() {
-        return mapperHelper.getConfig().isNotEmpty();
-    }
-
-    public boolean isCheckExampleEntityClass() {
-        return mapperHelper.getConfig().isCheckExampleEntityClass();
+    /**
+     * 获取序列下个值的表达式
+     *
+     * @param column
+     * @return
+     */
+    protected String getSeqNextVal(EntityColumn column) {
+        return MessageFormat.format(config.getSeqFormat(), column.getSequenceName(), column.getColumn(), column.getProperty(), column.getTable().getName());
     }
 
     /**
@@ -154,9 +112,9 @@ public abstract class MapperTemplate {
      * @return
      */
     public boolean supportMethod(String msId) {
-        Class<?> mapperClass = getMapperClass(msId);
+        Class<?> mapperClass = MsUtil.getMapperClass(msId);
         if (mapperClass != null && this.mapperClass.isAssignableFrom(mapperClass)) {
-            String methodName = getMethodName(msId);
+            String methodName = MsUtil.getMethodName(msId);
             return methodMap.get(methodName) != null;
         }
         return false;
@@ -195,10 +153,10 @@ public abstract class MapperTemplate {
      * @throws IllegalAccessException
      */
     public void setSqlSource(MappedStatement ms) throws Exception {
-        if (this.mapperClass == getMapperClass(ms.getId())) {
+        if (this.mapperClass == MsUtil.getMapperClass(ms.getId())) {
             throw new MapperException("请不要配置或扫描通用Mapper接口类：" + this.mapperClass);
         }
-        Method method = methodMap.get(getMethodName(ms));
+        Method method = methodMap.get(MsUtil.getMethodName(ms));
         try {
             //第一种，直接操作ms，不需要返回值
             if (method.getReturnType() == Void.TYPE) {
@@ -248,7 +206,7 @@ public abstract class MapperTemplate {
         if (entityClassMap.containsKey(msId)) {
             return entityClassMap.get(msId);
         } else {
-            Class<?> mapperClass = getMapperClass(msId);
+            Class<?> mapperClass = MsUtil.getMapperClass(msId);
             Type[] types = mapperClass.getGenericInterfaces();
             for (Type type : types) {
                 if (type instanceof ParameterizedType) {
@@ -256,7 +214,7 @@ public abstract class MapperTemplate {
                     if (t.getRawType() == this.mapperClass || this.mapperClass.isAssignableFrom((Class<?>) t.getRawType())) {
                         Class<?> returnType = (Class<?>) t.getActualTypeArguments()[0];
                         //获取该类型后，第一次对该类型进行初始化
-                        EntityHelper.initEntityNameMap(returnType, mapperHelper.getConfig());
+                        EntityHelper.initEntityNameMap(returnType, config);
                         entityClassMap.put(msId, returnType);
                         return returnType;
                     }
@@ -264,36 +222,6 @@ public abstract class MapperTemplate {
             }
         }
         throw new MapperException("无法获取 " + msId + " 方法的泛型信息!");
-    }
-
-    /**
-     * 根据对象生成主键映射
-     *
-     * @param ms
-     * @return
-     * @deprecated 4.x版本会移除该方法
-     */
-    @Deprecated
-    protected List<ParameterMapping> getPrimaryKeyParameterMappings(MappedStatement ms) {
-        Class<?> entityClass = getEntityClass(ms);
-        Set<EntityColumn> entityColumns = EntityHelper.getPKColumns(entityClass);
-        List<ParameterMapping> parameterMappings = new ArrayList<ParameterMapping>();
-        for (EntityColumn column : entityColumns) {
-            ParameterMapping.Builder builder = new ParameterMapping.Builder(ms.getConfiguration(), column.getProperty(), column.getJavaType());
-            builder.mode(ParameterMode.IN);
-            parameterMappings.add(builder.build());
-        }
-        return parameterMappings;
-    }
-
-    /**
-     * 获取序列下个值的表达式
-     *
-     * @param column
-     * @return
-     */
-    protected String getSeqNextVal(EntityColumn column) {
-        return MessageFormat.format(mapperHelper.getConfig().getSeqFormat(), column.getSequenceName(), column.getColumn(), column.getProperty(), column.getTable().getName());
     }
 
     /**
@@ -307,7 +235,7 @@ public abstract class MapperTemplate {
         String prefix = entityTable.getPrefix();
         if (StringUtil.isEmpty(prefix)) {
             //使用全局配置
-            prefix = mapperHelper.getConfig().getPrefix();
+            prefix = config.getPrefix();
         }
         if (StringUtil.isNotEmpty(prefix)) {
             return prefix + "." + entityTable.getName();

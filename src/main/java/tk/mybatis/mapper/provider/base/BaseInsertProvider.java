@@ -89,11 +89,11 @@ public class BaseInsertProvider extends MapperTemplate {
                     throw new MapperException(ms.getId() + "对应的实体类" + entityClass.getCanonicalName() + "中包含多个MySql的自动增长列,最多只能有一个!");
                 }
                 //插入selectKey
-                SelectKeyHelper.newSelectKeyMappedStatement(ms, column, entityClass, isBEFORE(), getIDENTITY(column));
+                SelectKeyHelper.newSelectKeyMappedStatement(ms, column, entityClass, config.isBEFORE(), getFormatedIDENTITY(column));
                 hasIdentityKey = true;
             } else if (column.isUuid()) {
                 //uuid的情况，直接插入bind节点
-                sql.append(SqlHelper.getBindValue(column, getUUID()));
+                sql.append(SqlHelper.getBindValue(column, config.getUUID()));
             }
         }
         sql.append(SqlHelper.insertIntoTable(entityClass, tableName(entityClass)));
@@ -109,7 +109,7 @@ public class BaseInsertProvider extends MapperTemplate {
                 sql.append(SqlHelper.getIfCacheNotNull(column, column.getColumnHolder(null, "_cache", ",")));
             } else {
                 //其他情况值仍然存在原property中
-                sql.append(SqlHelper.getIfNotNull(column, column.getColumnHolder(null, null, ","), isNotEmpty()));
+                sql.append(SqlHelper.getIfNotNull(column, column.getColumnHolder(null, null, ","), config.isNotEmpty()));
             }
             //当属性为null时，如果存在主键策略，会自动获取值，如果不存在，则使用null
             //序列的情况
@@ -118,10 +118,10 @@ public class BaseInsertProvider extends MapperTemplate {
             } else if (column.isIdentity()) {
                 sql.append(SqlHelper.getIfCacheIsNull(column, column.getColumnHolder() + ","));
             } else if (column.isUuid()) {
-                sql.append(SqlHelper.getIfIsNull(column, column.getColumnHolder(null, "_bind", ","), isNotEmpty()));
+                sql.append(SqlHelper.getIfIsNull(column, column.getColumnHolder(null, "_bind", ","), config.isNotEmpty()));
             } else {
                 //当null的时候，如果不指定jdbcType，oracle可能会报异常，指定VARCHAR不影响其他
-                sql.append(SqlHelper.getIfIsNull(column, column.getColumnHolder(null, null, ","), isNotEmpty()));
+                sql.append(SqlHelper.getIfIsNull(column, column.getColumnHolder(null, null, ","), config.isNotEmpty()));
             }
         }
         sql.append("</trim>");
@@ -180,11 +180,11 @@ public class BaseInsertProvider extends MapperTemplate {
                     throw new MapperException(ms.getId() + "对应的实体类" + entityClass.getCanonicalName() + "中包含多个MySql的自动增长列,最多只能有一个!");
                 }
                 //插入selectKey
-                SelectKeyHelper.newSelectKeyMappedStatement(ms, column, entityClass, isBEFORE(), getIDENTITY(column));
+                SelectKeyHelper.newSelectKeyMappedStatement(ms, column, entityClass, config.isBEFORE(), getFormatedIDENTITY(column));
                 hasIdentityKey = true;
             } else if (column.isUuid()) {
                 //uuid的情况，直接插入bind节点
-                sql.append(SqlHelper.getBindValue(column, getUUID()));
+                sql.append(SqlHelper.getBindValue(column, config.getUUID()));
             }
         }
         sql.append(SqlHelper.insertIntoTable(entityClass, tableName(entityClass)));
@@ -196,7 +196,7 @@ public class BaseInsertProvider extends MapperTemplate {
             if (StringUtil.isNotEmpty(column.getSequenceName()) || column.isIdentity() || column.isUuid()) {
                 sql.append(column.getColumn() + ",");
             } else {
-                sql.append(SqlHelper.getIfNotNull(column, column.getColumn() + ",", isNotEmpty()));
+                sql.append(SqlHelper.getIfNotNull(column, column.getColumn() + ",", config.isNotEmpty()));
             }
         }
         sql.append("</trim>");
@@ -211,16 +211,16 @@ public class BaseInsertProvider extends MapperTemplate {
                 sql.append(SqlHelper.getIfCacheNotNull(column, column.getColumnHolder(null, "_cache", ",")));
             } else {
                 //其他情况值仍然存在原property中
-                sql.append(SqlHelper.getIfNotNull(column, column.getColumnHolder(null, null, ","), isNotEmpty()));
+                sql.append(SqlHelper.getIfNotNull(column, column.getColumnHolder(null, null, ","), config.isNotEmpty()));
             }
             //当属性为null时，如果存在主键策略，会自动获取值，如果不存在，则使用null
             //序列的情况
             if (StringUtil.isNotEmpty(column.getSequenceName())) {
-                sql.append(SqlHelper.getIfIsNull(column, getSeqNextVal(column) + " ,", isNotEmpty()));
+                sql.append(SqlHelper.getIfIsNull(column, getSeqNextVal(column) + " ,", config.isNotEmpty()));
             } else if (column.isIdentity()) {
                 sql.append(SqlHelper.getIfCacheIsNull(column, column.getColumnHolder() + ","));
             } else if (column.isUuid()) {
-                sql.append(SqlHelper.getIfIsNull(column, column.getColumnHolder(null, "_bind", ","), isNotEmpty()));
+                sql.append(SqlHelper.getIfIsNull(column, column.getColumnHolder(null, "_bind", ","), config.isNotEmpty()));
             }
         }
         sql.append("</trim>");
