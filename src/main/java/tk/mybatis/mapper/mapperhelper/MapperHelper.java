@@ -32,6 +32,9 @@ import org.apache.ibatis.builder.annotation.ProviderSqlSource;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.session.Configuration;
 import tk.mybatis.mapper.MapperException;
+import tk.mybatis.mapper.common.Mapper;
+import tk.mybatis.mapper.common.MySqlMapper;
+import tk.mybatis.mapper.common.SqlServerMapper;
 import tk.mybatis.mapper.entity.Config;
 import tk.mybatis.mapper.provider.EmptyProvider;
 import tk.mybatis.mapper.util.StringUtil;
@@ -48,10 +51,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author liuzh
  */
 public class MapperHelper {
-    /**
-     * 缓存skip结果
-     */
-    private final Map<String, Boolean> msIdSkip = new HashMap<String, Boolean>();
 
     /**
      * 注册的接口
@@ -64,14 +63,9 @@ public class MapperHelper {
     private Map<Class<?>, MapperTemplate> registerMapper = new ConcurrentHashMap<Class<?>, MapperTemplate>();
 
     /**
-     * 缓存msid和MapperTemplate
-     */
-    private Map<String, MapperTemplate> msIdCache = new HashMap<String, MapperTemplate>();
-
-    /**
      * 通用Mapper配置
      */
-    private Config config = new Config();
+    private Config config;
 
     /**
      * 默认构造方法
@@ -201,19 +195,13 @@ public class MapperHelper {
      * @param msId
      * @return
      */
-    public boolean isMapperMethod(String msId) {
-        if (msIdSkip.get(msId) != null) {
-            return msIdSkip.get(msId);
-        }
+    public MapperTemplate getMapperTemplate(String msId) {
         for (Map.Entry<Class<?>, MapperTemplate> entry : registerMapper.entrySet()) {
             if (entry.getValue().supportMethod(msId)) {
-                msIdSkip.put(msId, true);
-                msIdCache.put(msId, entry.getValue());
-                return true;
+                return entry.getValue();
             }
         }
-        msIdSkip.put(msId, false);
-        return false;
+        return null;
     }
 
     /**
@@ -233,17 +221,15 @@ public class MapperHelper {
 
     /**
      * 重新设置SqlSource
-     * <p/>
-     * 执行该方法前必须使用isMapperMethod判断，否则msIdCache会空
      *
      * @param ms
+     * @param mapperTemplate
      */
-    public void setSqlSource(MappedStatement ms) {
-        MapperTemplate mapperTemplate = msIdCache.get(ms.getId());
+    public void setSqlSource(MappedStatement ms, MapperTemplate mapperTemplate) {
         try {
-            if (mapperTemplate != null) {
-                mapperTemplate.setSqlSource(ms);
-            }
+            mapperTemplate.setSqlSource(ms);
+        } catch (MapperException e) {
+            throw e;
         } catch (Exception e) {
             throw new MapperException(e);
         }
@@ -255,6 +241,9 @@ public class MapperHelper {
      * @param properties
      */
     public void setProperties(Properties properties) {
+        if(config == null){
+            config = new Config();
+        }
         config.setProperties(properties);
         //注册通用接口
         String mapper = null;
@@ -276,7 +265,9 @@ public class MapperHelper {
      */
     public void ifEmptyRegisterDefaultInterface() {
         if (registerClass.size() == 0) {
-            registerMapper("tk.mybatis.mapper.common.Mapper");
+            registerMapper(Mapper.class);
+            registerMapper(MySqlMapper.class);
+            registerMapper(SqlServerMapper.class);
         }
     }
 
@@ -306,9 +297,11 @@ public class MapperHelper {
         for (Object object : new ArrayList<Object>(configuration.getMappedStatements())) {
             if (object instanceof MappedStatement) {
                 MappedStatement ms = (MappedStatement) object;
-                if (ms.getId().startsWith(prefix) && isMapperMethod(ms.getId())) {
-                    if (ms.getSqlSource() instanceof ProviderSqlSource) {
-                        setSqlSource(ms);
+                String msId = ms.getId();
+                if (msId.startsWith(prefix) && ms.getSqlSource() instanceof ProviderSqlSource){
+                    MapperTemplate mapperTemplate = getMapperTemplate(msId);
+                    if(mapperTemplate != null){
+                        setSqlSource(ms, mapperTemplate);
                     }
                 }
             }
