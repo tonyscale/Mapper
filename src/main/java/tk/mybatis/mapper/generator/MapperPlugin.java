@@ -36,10 +36,7 @@ import org.mybatis.generator.config.Context;
 import org.mybatis.generator.internal.util.StringUtility;
 import tk.mybatis.mapper.MapperException;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 通用Mapper生成器插件
@@ -57,8 +54,11 @@ public class MapperPlugin extends PluginAdapter {
     private String schema;
     //注释生成器
     private CommentGeneratorConfiguration commentCfg;
-    //强制生成注解
-    private boolean forceAnnotation;
+
+    /**
+     * Mapper接口上的注解
+     */
+    private Set<String> mapperAnnotations = new HashSet<>();
 
     @Override
     public void setContext(Context context) {
@@ -74,6 +74,14 @@ public class MapperPlugin extends PluginAdapter {
     @Override
     public void setProperties(Properties properties) {
         super.setProperties(properties);
+
+        String mapperAnnotations = this.properties.getProperty("mapperAnnotations");
+        if (StringUtility.stringHasValue(mapperAnnotations)) {
+            for (String annotation : mapperAnnotations.split(",")) {
+                this.mapperAnnotations.add(annotation);
+            }
+        }
+
         String mappers = this.properties.getProperty("mappers");
         if (StringUtility.stringHasValue(mappers)) {
             for (String mapper : mappers.split(",")) {
@@ -85,11 +93,6 @@ public class MapperPlugin extends PluginAdapter {
         String caseSensitive = this.properties.getProperty("caseSensitive");
         if (StringUtility.stringHasValue(caseSensitive)) {
             this.caseSensitive = caseSensitive.equalsIgnoreCase("TRUE");
-        }
-        String forceAnnotation = this.properties.getProperty("forceAnnotation");
-        if (StringUtility.stringHasValue(forceAnnotation)) {
-            commentCfg.addProperty("forceAnnotation", forceAnnotation);
-            this.forceAnnotation = forceAnnotation.equalsIgnoreCase("TRUE");
         }
         String beginningDelimiter = this.properties.getProperty("beginningDelimiter");
         if (StringUtility.stringHasValue(beginningDelimiter)) {
@@ -143,7 +146,32 @@ public class MapperPlugin extends PluginAdapter {
         }
         //import实体类
         interfaze.addImportedType(entityType);
+
+        //Mapper上加注解
+        processMybatisMapper(interfaze);
+
         return true;
+    }
+
+
+    /**
+     * 对Mapper接口添加@mybatis注解
+     * @param interfaze
+     */
+    private void processMybatisMapper(Interface interfaze){
+
+        for (String mapperAnnotation : mapperAnnotations) {
+
+            if(mapperAnnotation.startsWith("@")){
+                mapperAnnotation = mapperAnnotation.substring(mapperAnnotation.indexOf("@")+1);
+            }
+
+            interfaze.addImportedType(new FullyQualifiedJavaType(mapperAnnotation));
+
+            String simpleMapperAnn = "@" + mapperAnnotation.substring(mapperAnnotation.lastIndexOf(".")+1);
+            interfaze.addAnnotation(simpleMapperAnn);
+        }
+
     }
 
     /**
@@ -153,6 +181,9 @@ public class MapperPlugin extends PluginAdapter {
      * @param introspectedTable
      */
     private void processEntityClass(TopLevelClass topLevelClass, IntrospectedTable introspectedTable) {
+
+        //lombok添加
+        processEntityLombok(topLevelClass);
         //引入JPA注解
         topLevelClass.addImportedType("javax.persistence.*");
         String tableName = introspectedTable.getFullyQualifiedTableNameAtRuntime();
@@ -171,10 +202,30 @@ public class MapperPlugin extends PluginAdapter {
                 || StringUtility.stringHasValue(beginningDelimiter)
                 || StringUtility.stringHasValue(endingDelimiter)) {
             topLevelClass.addAnnotation("@Table(name = \"" + getDelimiterName(tableName) + "\")");
-        } else if(forceAnnotation){
-            topLevelClass.addAnnotation("@Table(name = \"" + getDelimiterName(tableName) + "\")");
         }
     }
+
+
+    /**
+     * 进行实体lombok的注解的增加
+     * @param topLevelClass
+     */
+    private void processEntityLombok(TopLevelClass topLevelClass){
+        //lombok添加
+        topLevelClass.addImportedType("lombok.*");
+        topLevelClass.addAnnotation("@Data");
+        topLevelClass.addAnnotation("@AllArgsConstructor");
+        topLevelClass.addAnnotation("@NoArgsConstructor");
+        Iterator<Method> iterator = topLevelClass.getMethods().iterator();
+        while (iterator.hasNext()){
+            Method next = iterator.next();
+            boolean get = next.getName().startsWith("get") || next.getName().startsWith("set");
+            if(get){
+                iterator.remove();
+            }
+        }
+    }
+
 
     /**
      * 生成基础实体类

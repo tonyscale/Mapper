@@ -30,12 +30,14 @@ import org.apache.ibatis.annotations.SelectProvider;
 import org.apache.ibatis.annotations.UpdateProvider;
 import org.apache.ibatis.builder.annotation.ProviderSqlSource;
 import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.mapping.ResultSetType;
 import org.apache.ibatis.session.Configuration;
 import tk.mybatis.mapper.MapperException;
 import tk.mybatis.mapper.entity.Config;
 import tk.mybatis.mapper.provider.EmptyProvider;
 import tk.mybatis.mapper.util.StringUtil;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +53,7 @@ public class MapperHelper {
     /**
      * 缓存skip结果
      */
-    private final Map<String, Boolean> msIdSkip = new ConcurrentHashMap<String, Boolean>();
+    private final Map<String, Boolean> msIdSkip = new HashMap<String, Boolean>();
 
     /**
      * 注册的接口
@@ -66,7 +68,7 @@ public class MapperHelper {
     /**
      * 缓存msid和MapperTemplate
      */
-    private Map<String, MapperTemplate> msIdCache = new ConcurrentHashMap<String, MapperTemplate>();
+    private Map<String, MapperTemplate> msIdCache = new HashMap<String, MapperTemplate>();
 
     /**
      * 通用Mapper配置
@@ -308,6 +310,22 @@ public class MapperHelper {
                 MappedStatement ms = (MappedStatement) object;
                 if (ms.getId().startsWith(prefix) && isMapperMethod(ms.getId())) {
                     if (ms.getSqlSource() instanceof ProviderSqlSource) {
+
+                        try {
+                            //对Connection不支持ResultSetType，进行MappedStatement改造
+                            ResultSetType resultSetType = ms.getResultSetType();
+
+                            if(null != resultSetType && !config.isSupportResultSetType()){
+                                Class clazz = ms.getClass();
+                                Field field = clazz.getDeclaredField("resultSetType");
+                                field.setAccessible(true);
+                                field.set(ms,null);
+                            }
+
+                        } catch (Exception e) {
+                            throw new MapperException("Config supportResultSetType " + config.isSupportResultSetType() + ".But MappedStatement don't reflect its the field named resultSetType.",e);
+                        }
+
                         setSqlSource(ms);
                     }
                 }

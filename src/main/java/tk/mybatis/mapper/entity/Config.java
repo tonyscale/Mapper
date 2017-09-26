@@ -33,20 +33,53 @@ import tk.mybatis.mapper.util.StringUtil;
 import java.util.Properties;
 
 /**
- * 通用Mapper属性配置
- *
- * @author liuzh
+ * 通用Mapper的配置
  */
 public class Config {
+
+    /**
+     * 设置UUID生成策略
+     * 配置UUID生成策略需要使用OGNL表达式
+     * 默认值32位长度:@java.util.UUID@randomUUID().toString().replace("-", "")
+     *
+     */
     private String  UUID;
+
+    /**
+     *  获取主键自增回写SQL
+     */
     private String  IDENTITY;
+
+    /**
+     * 主键自增回写方法执行顺序,默认AFTER,可选值为(BEFORE|AFTER)
+     *
+     */
     private boolean BEFORE;
+    /**
+     * 获取序列格式化模板
+     *
+     */
     private String  seqFormat;
+    /**
+     * 设置全局的catalog,默认为空，如果设置了值，操作表时的sql会是catalog.tablename
+     *
+     */
     private String  catalog;
+
+    /**
+     * 设置全局的schema,默认为空，如果设置了值，操作表时的sql会是schema.tablename
+     * 如果同时设置了catalog,优先使用catalog.tablename
+     *
+     */
     private String  schema;
-    //校验调用Example方法时，Example(entityClass)和Mapper<EntityClass>是否一致
+    /**
+     * 校验调用Example方法时，Example(entityClass)和Mapper<EntityClass>是否一致
+     */
     private boolean checkExampleEntityClass;
-    //使用简单类型
+
+    /**
+     * 使用简单类型
+     */
     private boolean useSimpleType;
     /**
      * 是否支持方法上的注解，默认false
@@ -61,6 +94,34 @@ public class Config {
      * 字段转换风格，默认驼峰转下划线
      */
     private Style style;
+
+    /**
+     * 数据库Connection是否支持支持设置ResultSetType，默认为false，表示支持(Tddl中Tconnection不支持)
+     */
+    private boolean supportResultSetType = false;
+
+
+    /**
+     * 默认不能进行全表扫描
+     */
+    private boolean notScanAllTable = true;
+
+
+    public boolean isNotScanAllTable(){
+        return notScanAllTable;
+    }
+
+    public void setNotScanAllTable(boolean notScanAllTable){
+        this.notScanAllTable = notScanAllTable;
+    }
+
+    public boolean isSupportResultSetType(){
+        return supportResultSetType;
+    }
+
+    public void setSupportResultSetType(boolean notSupportResultSetType){
+        this.supportResultSetType = notSupportResultSetType;
+    }
 
     /**
      * 获取SelectKey的Order
@@ -305,5 +366,24 @@ public class Config {
             //默认驼峰
             this.style = Style.camelhump;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Config{" +
+                "UUID='" + UUID + '\'' +
+                ", IDENTITY='" + IDENTITY + '\'' +
+                ", BEFORE=" + BEFORE +
+                ", seqFormat='" + seqFormat + '\'' +
+                ", catalog='" + catalog + '\'' +
+                ", schema='" + schema + '\'' +
+                ", checkExampleEntityClass=" + checkExampleEntityClass +
+                ", useSimpleType=" + useSimpleType +
+                ", enableMethodAnnotation=" + enableMethodAnnotation +
+                ", notEmpty=" + notEmpty +
+                ", style=" + style +
+                ", supportResultSetType=" + supportResultSetType +
+                ", notScanAllTable=" + notScanAllTable +
+                '}';
     }
 }

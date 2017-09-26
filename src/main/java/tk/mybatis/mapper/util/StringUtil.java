@@ -136,4 +136,13 @@ public class StringUtil {
         }
         return c;
     }
+
+    public static String deleteLastIndexStr(String src,String lastIndexStr){
+        int i = src.lastIndexOf(lastIndexStr);
+        return src.substring(0,i);
+    }
+
+    public static void main(String[] args) {
+        System.out.println(deleteLastIndexStr("t!=null and t!='' and ","and"));
+    }
 }
